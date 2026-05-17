@@ -1,15 +1,9 @@
-export const IPC_CHANNELS = {
-  PING: 'app:ping',
-  CHAT_SEND: 'chat:send',
-  CHAT_STREAM: 'chat:stream',
-  CHAT_ABORT: 'chat:abort',
-  CONVERSATION_LIST: 'conversation:list',
-  CONVERSATION_CREATE: 'conversation:create',
-  CONVERSATION_DELETE: 'conversation:delete',
-  CONVERSATION_MESSAGES: 'conversation:messages',
-  SETTINGS_GET: 'settings:get',
-  SETTINGS_SET: 'settings:set',
-} as const;
+export interface Conversation {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+}
 
 export interface ChatMessage {
   id: string;
@@ -21,13 +15,6 @@ export interface ChatMessage {
 export interface StreamChunk {
   type: 'text' | 'done' | 'error';
   content: string;
-}
-
-export interface Conversation {
-  id: string;
-  title: string;
-  createdAt: number;
-  updatedAt: number;
 }
 
 export interface AppSettings {
@@ -42,14 +29,6 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
 }
 
-export const DEFAULT_SETTINGS: AppSettings = {
-  provider: 'ollama',
-  model: 'llama3.2',
-  apiKeys: {},
-  ollamaHost: 'http://localhost:11434',
-  theme: 'dark',
-};
-
 export const PROVIDER_MODELS: Record<string, string[]> = {
   anthropic: ['claude-sonnet-4-6-20250514', 'claude-haiku-4-5-20251001', 'claude-opus-4-6-20250515'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
@@ -60,3 +39,26 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
   ],
   ollama: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'phi3'],
 };
+
+declare global {
+  interface Window {
+    quickCowork: {
+      ping: () => Promise<string>;
+      chat: {
+        send: (conversationId: string, content: string) => Promise<void>;
+        onStream: (callback: (chunk: StreamChunk) => void) => () => void;
+        abort: () => Promise<void>;
+      };
+      conversations: {
+        list: () => Promise<Conversation[]>;
+        create: (title?: string) => Promise<Conversation>;
+        delete: (id: string) => Promise<void>;
+        messages: (conversationId: string) => Promise<ChatMessage[]>;
+      };
+      settings: {
+        get: () => Promise<AppSettings>;
+        set: (settings: Partial<AppSettings>) => Promise<AppSettings>;
+      };
+    };
+  }
+}

@@ -11,6 +11,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@quick-cowork/shared": "workspace:*"
+    "@anthropic-ai/sdk": "^0.96.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1048.0",
+    "@quick-cowork/shared": "workspace:*",
+    "openai": "^6.38.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.8.0"
   }
 }

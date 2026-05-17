@@ -1,9 +1,8 @@
-import { StreamChunk } from '@quick-cowork/shared';
+import type { StreamChunk } from '@quick-cowork/shared';
 
 export interface LLMProvider {
   id: string;
   name: string;
-  models: string[];
   chat(messages: ChatInput[], options?: ChatOptions): AsyncIterable<StreamChunk>;
   isAvailable(): Promise<boolean>;
 }
