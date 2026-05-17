@@ -1,0 +1,35 @@
+{
+  "name": "quick-cowork",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI desktop cowork assistant for macOS",
+  "author": "tsaol",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "package": "electron-builder --config electron-builder.yml"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.5.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": ["eslint --fix", "prettier --write"],
+    "*.{json,md,yml}": ["prettier --write"]
+  }
+}

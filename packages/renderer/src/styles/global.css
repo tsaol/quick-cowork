@@ -1,0 +1,10 @@
+@import 'tailwindcss';
+
+.draggable {
+  -webkit-app-region: drag;
+}
+
+.draggable button,
+.draggable input {
+  -webkit-app-region: no-drag;
+}

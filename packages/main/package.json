@@ -1,0 +1,16 @@
+{
+  "name": "@quick-cowork/main",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@quick-cowork/shared": "workspace:*",
+    "@quick-cowork/core": "workspace:*"
+  }
+}
