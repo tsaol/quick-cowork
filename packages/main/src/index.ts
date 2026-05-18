@@ -7,11 +7,18 @@ import {
   globalShortcut,
   nativeImage,
   dialog,
+  shell,
 } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { IPC_CHANNELS } from '@quick-cowork/shared';
-import type { ChatMessage, StreamChunk, LocalSearchOptions } from '@quick-cowork/shared';
+import type {
+  ChatMessage,
+  StreamChunk,
+  LocalSearchOptions,
+  McpServerConfig,
+  CalendarEvent,
+} from '@quick-cowork/shared';
 import {
   ProviderManager,
   AppDatabase,
@@ -27,6 +34,8 @@ import {
   readFileContent,
   EmbeddingManager,
   MemoryStore,
+  IntegrationManager,
+  OAuthManager,
 } from '@quick-cowork/core';
 
 let mainWindow: BrowserWindow | null = null;
@@ -42,6 +51,9 @@ const fileService = new FileService();
 let embeddingManager = new EmbeddingManager({});
 let memoryStore = new MemoryStore(database.getDb(), embeddingManager);
 
+const integrationManager = new IntegrationManager();
+const oauthManager = new OAuthManager();
+
 let activeAbortController: AbortController | null = null;
 
 function configureProviders() {
@@ -56,6 +68,8 @@ function configureProviders() {
     openaiKey: settings.apiKeys?.openai,
   });
   memoryStore = new MemoryStore(database.getDb(), embeddingManager);
+
+  integrationManager.configureFromSettings(settings);
 }
 
 function createWindow() {
@@ -399,14 +413,128 @@ function registerIpcHandlers() {
       return memoryStore.update(id, content, metadata);
     },
   );
+
+  // MCP handlers
+  ipcMain.handle(IPC_CHANNELS.MCP_CONNECT, async (_event, config: McpServerConfig) => {
+    await integrationManager.mcp.connect(config);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_DISCONNECT, async (_event, serverId: string) => {
+    await integrationManager.mcp.disconnect(serverId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MCP_LIST_TOOLS, async (_event, serverId: string) => {
+    return integrationManager.mcp.listTools(serverId);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.MCP_INVOKE,
+    async (_event, serverId: string, toolName: string, args: Record<string, unknown>) => {
+      return integrationManager.mcp.invoke(serverId, toolName, args);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.MCP_LIST_SERVERS, () => {
+    return integrationManager.mcp.listServers();
+  });
+
+  // Slack handlers
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_SLACK_SEND,
+    async (_event, channel: string, text: string) => {
+      return integrationManager.slack.sendMessage(channel, text);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.INTEGRATION_SLACK_CHANNELS, async () => {
+    return integrationManager.slack.listChannels();
+  });
+
+  // Gmail handlers
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_GMAIL_SEND,
+    async (_event, to: string, subject: string, body: string) => {
+      return integrationManager.gmail.sendEmail(to, subject, body);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_GMAIL_LIST,
+    async (_event, query?: string, maxResults?: number) => {
+      return integrationManager.gmail.listEmails(query, maxResults);
+    },
+  );
+
+  // Calendar handlers
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_CALENDAR_LIST,
+    async (_event, timeMin?: string, timeMax?: string) => {
+      return integrationManager.calendar.listEvents(timeMin, timeMax);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_CALENDAR_CREATE,
+    async (_event, event: Omit<CalendarEvent, 'id'>) => {
+      return integrationManager.calendar.createEvent(event);
+    },
+  );
+
+  // OAuth handlers
+  ipcMain.handle(
+    IPC_CHANNELS.INTEGRATION_OAUTH_START,
+    async (_event, provider: 'gmail' | 'calendar') => {
+      const settings = settingsStore.get();
+      const cfg =
+        provider === 'gmail'
+          ? settings.integrations?.gmail
+          : settings.integrations?.calendar;
+      const clientId = cfg?.clientId || '';
+      const clientSecret = cfg?.clientSecret || '';
+      if (!clientId || !clientSecret) {
+        throw new Error(`Missing ${provider} clientId or clientSecret in settings`);
+      }
+      const adapter =
+        provider === 'gmail' ? integrationManager.gmail : integrationManager.calendar;
+      const authUrl = adapter.getAuthUrl(clientId, clientSecret);
+      const code = await oauthManager.startOAuthFlow(authUrl, (url) => {
+        shell.openExternal(url);
+      });
+      const refreshToken = await adapter.exchangeCodeForRefreshToken(
+        clientId,
+        clientSecret,
+        code,
+      );
+      const next = { ...settings.integrations };
+      if (provider === 'gmail') {
+        next.gmail = { ...next.gmail, clientId, clientSecret, refreshToken };
+      } else {
+        next.calendar = { ...next.calendar, clientId, clientSecret, refreshToken };
+      }
+      settingsStore.set({ integrations: next });
+      configureProviders();
+      return { provider, success: true };
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.INTEGRATION_OAUTH_STATUS, () => {
+    return integrationManager.getStatus();
+  });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configureProviders();
   createWindow();
   createTray();
   registerIpcHandlers();
   registerShortcuts();
+
+  const settings = settingsStore.get();
+  if (settings.mcpServers && settings.mcpServers.length > 0) {
+    integrationManager.connectMcpServers(settings.mcpServers).catch((err) => {
+      console.error('Failed to connect MCP servers:', err);
+    });
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -421,7 +549,14 @@ app.on('window-all-closed', () => {
   // stay in tray on macOS
 });
 
-app.on('will-quit', () => {
+app.on('will-quit', async (event) => {
   globalShortcut.unregisterAll();
+  event.preventDefault();
+  try {
+    await integrationManager.cleanup();
+  } catch (err) {
+    console.error('Integration cleanup error:', err);
+  }
   database.close();
+  app.exit();
 });
