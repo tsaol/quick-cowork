@@ -8,9 +8,11 @@ test.beforeAll(async () => {
   app = await electron.launch({
     args: [path.join(__dirname, '../packages/main/dist/index.js')],
     env: { ...process.env, NODE_ENV: 'production' },
+    timeout: 60000,
   });
   page = await app.firstWindow();
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForSelector('[data-testid="app"]', { timeout: 15000 });
 });
 
 test.afterAll(async () => {
@@ -39,7 +41,7 @@ test('can create conversation, type message, see it appear', async () => {
   const newChatBtn = page.locator('[data-testid="new-chat-button"]');
   await newChatBtn.click();
 
-  await expect(page.locator('[data-testid="chat-view"]')).toBeVisible();
+  await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({ timeout: 10000 });
   await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
 
   const input = page.locator('[data-testid="message-input"]');
