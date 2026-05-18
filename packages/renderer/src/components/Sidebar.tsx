@@ -1,4 +1,4 @@
-import { Plus, Settings, Trash2, MessageSquare, Search, FileText, Brain, Plug, Bot, Users } from 'lucide-react';
+import { Plus, Settings, Trash2, MessageSquare, Search, FileText, Brain, Plug, Bot, Users, Zap, Coffee } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import type { Conversation } from '../types';
 
@@ -15,6 +15,8 @@ interface SidebarProps {
   onIntegrationsClick?: () => void;
   onAgentsClick?: () => void;
   onSpacesClick?: () => void;
+  onWorkflowsClick?: () => void;
+  onBriefingClick?: () => void;
 }
 
 export function Sidebar({
@@ -30,6 +32,8 @@ export function Sidebar({
   onIntegrationsClick,
   onAgentsClick,
   onSpacesClick,
+  onWorkflowsClick,
+  onBriefingClick,
 }: SidebarProps) {
   return (
     <div data-testid="sidebar" className="w-[280px] flex flex-col bg-zinc-950 border-r border-zinc-800 h-screen">
@@ -137,6 +141,22 @@ export function Sidebar({
         >
           <Users size={16} />
           Spaces
+        </button>
+        <button
+          onClick={onWorkflowsClick}
+          data-testid="workflows-button"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200 text-sm"
+        >
+          <Zap size={16} />
+          Workflows
+        </button>
+        <button
+          onClick={onBriefingClick}
+          data-testid="briefing-button"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200 text-sm"
+        >
+          <Coffee size={16} />
+          Briefing
         </button>
         <button
           onClick={onSettingsClick}

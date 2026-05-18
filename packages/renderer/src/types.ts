@@ -310,6 +310,77 @@ export interface DailyBriefing {
   generatedAt: number;
 }
 
+// Workflows (M9)
+export interface ScheduleTriggerConfig {
+  cron: string;
+  time?: string;
+}
+
+export interface EventTriggerConfig {
+  source: 'email' | 'calendar' | 'slack';
+  condition: string;
+}
+
+export interface WorkflowTrigger {
+  type: 'schedule' | 'event';
+  config: ScheduleTriggerConfig | EventTriggerConfig;
+}
+
+export type WorkflowActionType =
+  | 'send_slack'
+  | 'send_email'
+  | 'generate_doc'
+  | 'ai_process'
+  | 'save_memory';
+
+export interface WorkflowAction {
+  id: string;
+  type: WorkflowActionType;
+  config: Record<string, unknown>;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  trigger: WorkflowTrigger;
+  actions: WorkflowAction[];
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WorkflowActionResult {
+  actionId: string;
+  output: unknown;
+  error?: string;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: 'success' | 'failed' | 'running';
+  startedAt: number;
+  completedAt?: number;
+  results: WorkflowActionResult[];
+}
+
+export interface WorkflowCreateInput {
+  name: string;
+  description?: string;
+  trigger: WorkflowTrigger;
+  actions: WorkflowAction[];
+  enabled?: boolean;
+}
+
+export interface WorkflowUpdateInput {
+  name?: string;
+  description?: string;
+  trigger?: WorkflowTrigger;
+  actions?: WorkflowAction[];
+  enabled?: boolean;
+}
+
 declare global {
   interface Window {
     quickCowork: {
@@ -411,6 +482,16 @@ declare global {
         getLatest: () => Promise<DailyBriefing | null>;
         configure: (config: BriefingConfig) => Promise<BriefingConfig>;
         getConfig: () => Promise<BriefingConfig>;
+      };
+      workflows: {
+        list: () => Promise<Workflow[]>;
+        get: (id: string) => Promise<Workflow | null>;
+        create: (input: WorkflowCreateInput) => Promise<Workflow>;
+        update: (id: string, input: WorkflowUpdateInput) => Promise<Workflow>;
+        delete: (id: string) => Promise<void>;
+        execute: (id: string) => Promise<WorkflowRun>;
+        toggle: (id: string, enabled: boolean) => Promise<Workflow>;
+        history: (id: string, limit?: number) => Promise<WorkflowRun[]>;
       };
     };
   }

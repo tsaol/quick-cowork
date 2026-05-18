@@ -82,6 +82,8 @@ export default function App() {
           <SpacesView />
         ) : view === 'briefing' ? (
           <BriefingView />
+        ) : view === 'workflows' ? (
+          <WorkflowsView />
         ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (
