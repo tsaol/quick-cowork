@@ -4,12 +4,15 @@ import { ChatView } from './components/ChatView';
 import { SettingsView } from './components/SettingsView';
 import { DocumentGenerator } from './components/DocumentGenerator';
 import { ResearchView } from './components/ResearchView';
+import { MemoryView } from './components/MemoryView';
 import type { Conversation } from './types';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [view, setView] = useState<'chat' | 'settings' | 'research' | 'documents'>('chat');
+  const [view, setView] = useState<
+    'chat' | 'settings' | 'research' | 'documents' | 'memory'
+  >('chat');
 
   const loadConversations = useCallback(async () => {
     const list = await window.quickCowork.conversations.list();
@@ -50,6 +53,7 @@ export default function App() {
         onSettingsClick={() => setView('settings')}
         onResearchClick={() => setView('research')}
         onDocumentsClick={() => setView('documents')}
+        onMemoryClick={() => setView('memory')}
       />
       <main data-testid="main-content" className="flex-1 flex flex-col min-w-0">
         {view === 'documents' ? (
@@ -58,6 +62,8 @@ export default function App() {
           <SettingsView onBack={() => setView('chat')} />
         ) : view === 'research' ? (
           <ResearchView />
+        ) : view === 'memory' ? (
+          <MemoryView />
         ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (

@@ -13,6 +13,9 @@ import type {
   LocalSearchResult,
   LocalSearchOptions,
   FileContentResponse,
+  Memory,
+  MemorySearchResult,
+  KnowledgeGraph,
 } from '@quick-cowork/shared';
 
 const api = {
@@ -70,6 +73,23 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.RESEARCH_LOCAL_SEARCH, options),
     fileContent: (filePath: string): Promise<FileContentResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.RESEARCH_FILE_CONTENT, filePath),
+  },
+
+  memory: {
+    store: (content: string, metadata?: Record<string, unknown>): Promise<Memory> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEMORY_STORE, content, metadata),
+    search: (query: string, limit?: number): Promise<MemorySearchResult[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEMORY_SEARCH, query, limit),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEMORY_DELETE, id),
+    getGraph: (): Promise<KnowledgeGraph> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEMORY_GET_GRAPH),
+    update: (
+      id: string,
+      content: string,
+      metadata?: Record<string, unknown>,
+    ): Promise<Memory> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MEMORY_UPDATE, id, content, metadata),
   },
 };
 

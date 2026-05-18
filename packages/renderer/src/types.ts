@@ -140,6 +140,34 @@ export interface DocumentGenerateResponse {
   error?: string;
 }
 
+// Memory types
+export interface Memory {
+  id: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface MemorySearchResult {
+  memory: Memory;
+  score: number;
+}
+
+export interface MemoryEdge {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  relation: string;
+  weight: number;
+  createdAt: number;
+}
+
+export interface KnowledgeGraph {
+  nodes: Memory[];
+  edges: MemoryEdge[];
+}
+
 declare global {
   interface Window {
     quickCowork: {
@@ -175,6 +203,17 @@ declare global {
         fetchUrl: (url: string) => Promise<FetchUrlResponse>;
         localSearch: (options: LocalSearchOptions) => Promise<LocalSearchResult[]>;
         fileContent: (filePath: string) => Promise<FileContentResponse>;
+      };
+      memory: {
+        store: (content: string, metadata?: Record<string, unknown>) => Promise<Memory>;
+        search: (query: string, limit?: number) => Promise<MemorySearchResult[]>;
+        delete: (id: string) => Promise<void>;
+        getGraph: () => Promise<KnowledgeGraph>;
+        update: (
+          id: string,
+          content: string,
+          metadata?: Record<string, unknown>,
+        ) => Promise<Memory>;
       };
     };
   }

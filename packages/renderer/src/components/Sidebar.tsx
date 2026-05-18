@@ -1,4 +1,4 @@
-import { Plus, Settings, Trash2, MessageSquare, Search, FileText } from 'lucide-react';
+import { Plus, Settings, Trash2, MessageSquare, Search, FileText, Brain } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import type { Conversation } from '../types';
 
@@ -11,6 +11,7 @@ interface SidebarProps {
   onSettingsClick: () => void;
   onResearchClick?: () => void;
   onDocumentsClick: () => void;
+  onMemoryClick?: () => void;
 }
 
 export function Sidebar({
@@ -22,6 +23,7 @@ export function Sidebar({
   onSettingsClick,
   onResearchClick,
   onDocumentsClick,
+  onMemoryClick,
 }: SidebarProps) {
   return (
     <div data-testid="sidebar" className="w-[280px] flex flex-col bg-zinc-950 border-r border-zinc-800 h-screen">
@@ -97,6 +99,14 @@ export function Sidebar({
         >
           <FileText size={16} />
           Documents
+        </button>
+        <button
+          onClick={onMemoryClick}
+          data-testid="memory-button"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200 text-sm"
+        >
+          <Brain size={16} />
+          Memory
         </button>
         <button
           onClick={onSettingsClick}
