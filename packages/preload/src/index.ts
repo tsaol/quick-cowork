@@ -16,6 +16,14 @@ import type {
   Memory,
   MemorySearchResult,
   KnowledgeGraph,
+  McpServerConfig,
+  McpTool,
+  McpInvokeResponse,
+  SlackMessage,
+  SlackChannel,
+  GmailMessage,
+  CalendarEvent,
+  IntegrationStatus,
 } from '@quick-cowork/shared';
 
 const api = {
@@ -90,6 +98,42 @@ const api = {
       metadata?: Record<string, unknown>,
     ): Promise<Memory> =>
       ipcRenderer.invoke(IPC_CHANNELS.MEMORY_UPDATE, id, content, metadata),
+  },
+
+  mcp: {
+    connect: (config: McpServerConfig): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_CONNECT, config),
+    disconnect: (serverId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_DISCONNECT, serverId),
+    listTools: (serverId: string): Promise<McpTool[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_LIST_TOOLS, serverId),
+    invoke: (
+      serverId: string,
+      toolName: string,
+      args: Record<string, unknown>,
+    ): Promise<McpInvokeResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_INVOKE, serverId, toolName, args),
+    listServers: (): Promise<McpServerConfig[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_LIST_SERVERS),
+  },
+
+  integrations: {
+    slackSend: (channel: string, text: string): Promise<SlackMessage> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_SLACK_SEND, channel, text),
+    slackChannels: (): Promise<SlackChannel[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_SLACK_CHANNELS),
+    gmailSend: (to: string, subject: string, body: string): Promise<GmailMessage> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_GMAIL_SEND, to, subject, body),
+    gmailList: (query?: string, max?: number): Promise<GmailMessage[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_GMAIL_LIST, query, max),
+    calendarList: (timeMin?: string, timeMax?: string): Promise<CalendarEvent[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_CALENDAR_LIST, timeMin, timeMax),
+    calendarCreate: (event: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_CALENDAR_CREATE, event),
+    oauthStart: (provider: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_OAUTH_START, provider),
+    oauthStatus: (): Promise<IntegrationStatus> =>
+      ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_OAUTH_STATUS),
   },
 };
 

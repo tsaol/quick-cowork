@@ -5,13 +5,14 @@ import { SettingsView } from './components/SettingsView';
 import { DocumentGenerator } from './components/DocumentGenerator';
 import { ResearchView } from './components/ResearchView';
 import { MemoryView } from './components/MemoryView';
+import { IntegrationsView } from './components/IntegrationsView';
 import type { Conversation } from './types';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<
-    'chat' | 'settings' | 'research' | 'documents' | 'memory'
+    'chat' | 'settings' | 'research' | 'documents' | 'memory' | 'integrations'
   >('chat');
 
   const loadConversations = useCallback(async () => {
@@ -54,6 +55,7 @@ export default function App() {
         onResearchClick={() => setView('research')}
         onDocumentsClick={() => setView('documents')}
         onMemoryClick={() => setView('memory')}
+        onIntegrationsClick={() => setView('integrations')}
       />
       <main data-testid="main-content" className="flex-1 flex flex-col min-w-0">
         {view === 'documents' ? (
@@ -64,6 +66,8 @@ export default function App() {
           <ResearchView />
         ) : view === 'memory' ? (
           <MemoryView />
+        ) : view === 'integrations' ? (
+          <IntegrationsView />
         ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (

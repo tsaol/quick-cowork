@@ -168,6 +168,63 @@ export interface KnowledgeGraph {
   edges: MemoryEdge[];
 }
 
+// MCP types
+export interface McpServerConfig {
+  id: string;
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+}
+
+export interface McpTool {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+}
+
+export interface McpInvokeResponse {
+  content: unknown;
+  isError: boolean;
+}
+
+// Integration types
+export interface SlackMessage {
+  channel: string;
+  text: string;
+  user?: string;
+  timestamp?: string;
+}
+
+export interface SlackChannel {
+  id: string;
+  name: string;
+}
+
+export interface GmailMessage {
+  id: string;
+  from: string;
+  to: string;
+  subject: string;
+  body: string;
+  date: number;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: number;
+  end: number;
+  description?: string;
+  location?: string;
+}
+
+export interface IntegrationStatus {
+  slack: boolean;
+  gmail: boolean;
+  calendar: boolean;
+}
+
 declare global {
   interface Window {
     quickCowork: {
@@ -214,6 +271,27 @@ declare global {
           content: string,
           metadata?: Record<string, unknown>,
         ) => Promise<Memory>;
+      };
+      mcp: {
+        connect: (config: McpServerConfig) => Promise<void>;
+        disconnect: (serverId: string) => Promise<void>;
+        listTools: (serverId: string) => Promise<McpTool[]>;
+        invoke: (
+          serverId: string,
+          toolName: string,
+          args: Record<string, unknown>,
+        ) => Promise<McpInvokeResponse>;
+        listServers: () => Promise<McpServerConfig[]>;
+      };
+      integrations: {
+        slackSend: (channel: string, text: string) => Promise<SlackMessage>;
+        slackChannels: () => Promise<SlackChannel[]>;
+        gmailSend: (to: string, subject: string, body: string) => Promise<GmailMessage>;
+        gmailList: (query?: string, max?: number) => Promise<GmailMessage[]>;
+        calendarList: (timeMin?: string, timeMax?: string) => Promise<CalendarEvent[]>;
+        calendarCreate: (event: Omit<CalendarEvent, 'id'>) => Promise<CalendarEvent>;
+        oauthStart: (provider: string) => Promise<void>;
+        oauthStatus: () => Promise<IntegrationStatus>;
       };
     };
   }
