@@ -20,7 +20,8 @@
     "exceljs": "^4.4.0",
     "glob": "^13.0.6",
     "openai": "^6.38.0",
-    "pptxgenjs": "^4.0.1"
+    "pptxgenjs": "^4.0.1",
+    "sqlite-vec": "^0.1.6"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

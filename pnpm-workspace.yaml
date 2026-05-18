@@ -4,3 +4,5 @@ allowBuilds:
   better-sqlite3: true
   electron: true
   esbuild: true
+onlyBuiltDependencies:
+  sqlite-vec: true

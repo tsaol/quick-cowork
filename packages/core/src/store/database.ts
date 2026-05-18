@@ -38,6 +38,30 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       INSERT INTO schema_version (version) VALUES (1);
     `,
   },
+  {
+    version: 2,
+    sql: `
+      CREATE TABLE IF NOT EXISTS memories (
+        id TEXT PRIMARY KEY,
+        content TEXT NOT NULL,
+        embedding BLOB,
+        metadata TEXT DEFAULT '{}',
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS memory_edges (
+        id TEXT PRIMARY KEY,
+        source_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+        target_id TEXT NOT NULL REFERENCES memories(id) ON DELETE CASCADE,
+        relation TEXT NOT NULL,
+        weight REAL DEFAULT 1.0,
+        created_at INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_memory_edges_source ON memory_edges(source_id);
+      CREATE INDEX IF NOT EXISTS idx_memory_edges_target ON memory_edges(target_id);
+      INSERT OR REPLACE INTO schema_version (version) VALUES (2);
+    `,
+  },
 ];
 
 export class AppDatabase {

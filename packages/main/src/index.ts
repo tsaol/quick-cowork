@@ -25,6 +25,8 @@ import {
   fetchUrl,
   localSearch,
   readFileContent,
+  EmbeddingManager,
+  MemoryStore,
 } from '@quick-cowork/core';
 
 let mainWindow: BrowserWindow | null = null;
@@ -37,12 +39,23 @@ const settingsStore = new SettingsStore(database.getDb());
 const providerManager = new ProviderManager();
 const fileService = new FileService();
 
+let embeddingManager = new EmbeddingManager({});
+let memoryStore = new MemoryStore(database.getDb(), embeddingManager);
+
 let activeAbortController: AbortController | null = null;
 
 function configureProviders() {
   const settings = settingsStore.get();
   providerManager.configure(settings);
   fileService.setAllowedFolders(settings.allowedFolders || []);
+
+  embeddingManager = new EmbeddingManager({
+    provider: settings.embeddingProvider,
+    model: settings.embeddingModel,
+    ollamaHost: settings.ollamaHost,
+    openaiKey: settings.apiKeys?.openai,
+  });
+  memoryStore = new MemoryStore(database.getDb(), embeddingManager);
 }
 
 function createWindow() {
@@ -356,6 +369,36 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.RESEARCH_FILE_CONTENT, (_event, filePath: string) => {
     return readFileContent(filePath);
   });
+
+  // Memory handlers
+  ipcMain.handle(
+    IPC_CHANNELS.MEMORY_STORE,
+    async (_event, content: string, metadata?: Record<string, unknown>) => {
+      return memoryStore.store(content, metadata);
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.MEMORY_SEARCH,
+    async (_event, query: string, limit?: number) => {
+      return memoryStore.search(query, limit);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.MEMORY_DELETE, (_event, id: string) => {
+    memoryStore.delete(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.MEMORY_GET_GRAPH, () => {
+    return memoryStore.getGraph();
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.MEMORY_UPDATE,
+    async (_event, id: string, content: string, metadata?: Record<string, unknown>) => {
+      return memoryStore.update(id, content, metadata);
+    },
+  );
 }
 
 app.whenReady().then(() => {
