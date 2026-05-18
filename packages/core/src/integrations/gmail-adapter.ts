@@ -92,4 +92,35 @@ export class GmailAdapter {
       .replace(/=+$/, '');
     await this.gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
   }
+
+  async getEmail(id: string): Promise<GmailMessage> {
+    if (!this.gmail) throw new Error('Gmail not configured');
+    const res = await this.gmail.users.messages.get({ userId: 'me', id, format: 'full' });
+    const headers = res.data.payload?.headers || [];
+    const get = (name: string) =>
+      headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || '';
+    const body = extractPlainTextBody(res.data.payload) || res.data.snippet || '';
+    return {
+      id,
+      from: get('From'),
+      to: get('To'),
+      subject: get('Subject'),
+      body,
+      date: Number(res.data.internalDate) || 0,
+    };
+  }
+}
+
+function extractPlainTextBody(
+  payload: gmail_v1.Schema$MessagePart | undefined,
+): string {
+  if (!payload) return '';
+  if (payload.mimeType === 'text/plain' && payload.body?.data) {
+    return Buffer.from(payload.body.data, 'base64').toString('utf-8');
+  }
+  for (const part of payload.parts || []) {
+    const text = extractPlainTextBody(part);
+    if (text) return text;
+  }
+  return '';
 }

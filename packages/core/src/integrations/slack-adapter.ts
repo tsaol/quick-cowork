@@ -32,4 +32,18 @@ export class SlackAdapter {
       .filter((c) => c.id && c.name)
       .map((c) => ({ id: c.id!, name: c.name! }));
   }
+
+  async getMessages(channel: string, limit = 50): Promise<SlackMessage[]> {
+    if (!this.client) throw new Error('Slack not configured');
+    const result = await this.client.conversations.history({ channel, limit });
+    return (result.messages || []).map((m) => {
+      const msg = m as { text?: string; user?: string; ts?: string };
+      return {
+        channel,
+        text: msg.text || '',
+        user: msg.user,
+        timestamp: msg.ts,
+      };
+    });
+  }
 }
