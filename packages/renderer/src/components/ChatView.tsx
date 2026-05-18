@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Square, Sparkles } from 'lucide-react';
+import { Send, Square, Sparkles, Paperclip, X, FileText } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import type { ChatMessage, StreamChunk } from '../types';
 
@@ -7,10 +7,16 @@ interface ChatViewProps {
   conversationId: string;
 }
 
+interface PendingFile {
+  path: string;
+  name: string;
+}
+
 export function ChatView({ conversationId }: ChatViewProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -65,9 +71,26 @@ export function ChatView({ conversationId }: ChatViewProps) {
     }
   }, [messages]);
 
+  const handleAttachFiles = async () => {
+    const paths = await window.quickCowork.files.pick();
+    if (paths.length > 0) {
+      const newFiles = paths.map((p) => ({
+        path: p,
+        name: p.split('/').pop() || p,
+      }));
+      setPendingFiles((prev) => [...prev, ...newFiles]);
+    }
+  };
+
+  const removePendingFile = (path: string) => {
+    setPendingFiles((prev) => prev.filter((f) => f.path !== path));
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || isStreaming) return;
+
+    const attachmentPaths = pendingFiles.map((f) => f.path);
 
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -78,10 +101,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
+    setPendingFiles([]);
     setIsStreaming(true);
 
     inputRef.current?.focus();
-    window.quickCowork.chat.send(conversationId, text);
+    window.quickCowork.chat.send(conversationId, text, attachmentPaths.length > 0 ? attachmentPaths : undefined);
   };
 
   const handleAbort = () => {
@@ -97,10 +121,10 @@ export function ChatView({ conversationId }: ChatViewProps) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 lg:px-16 xl:px-24">
+    <div data-testid="chat-view" className="flex flex-col h-full">
+      <div ref={scrollRef} data-testid="messages-container" className="flex-1 overflow-y-auto px-6 lg:px-16 xl:px-24">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
+          <div data-testid="chat-empty-state" className="flex flex-col items-center justify-center h-full text-zinc-500 gap-4">
             <div className="w-16 h-16 rounded-2xl bg-zinc-800 flex items-center justify-center">
               <Sparkles size={28} className="text-blue-500" />
             </div>
@@ -124,7 +148,34 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
       <div className="px-6 lg:px-16 xl:px-24 pb-4 pt-2">
         <div className="max-w-3xl mx-auto">
+          {pendingFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {pendingFiles.map((file) => (
+                <div
+                  key={file.path}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-zinc-300"
+                >
+                  <FileText size={12} className="text-blue-400" />
+                  <span className="max-w-[150px] truncate">{file.name}</span>
+                  <button
+                    onClick={() => removePendingFile(file.path)}
+                    className="ml-1 text-zinc-500 hover:text-zinc-300"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="relative flex items-end bg-zinc-800 rounded-xl border border-zinc-700 focus-within:border-blue-500 transition-colors">
+            <button
+              onClick={handleAttachFiles}
+              disabled={isStreaming}
+              className="p-3 text-zinc-500 hover:text-zinc-300 disabled:opacity-50 transition-colors"
+              title="Attach files"
+            >
+              <Paperclip size={18} />
+            </button>
             <textarea
               ref={inputRef}
               value={input}
@@ -132,7 +183,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
               onKeyDown={handleKeyDown}
               placeholder="Message Quick Cowork..."
               rows={1}
-              className="flex-1 resize-none bg-transparent px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-40 min-h-[44px]"
+              data-testid="message-input"
+              className="flex-1 resize-none bg-transparent px-2 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none max-h-40 min-h-[44px]"
               style={{ height: 'auto', overflow: 'hidden' }}
               onInput={(e) => {
                 const target = e.target as HTMLTextAreaElement;
@@ -145,6 +197,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
               {isStreaming ? (
                 <button
                   onClick={handleAbort}
+                  data-testid="abort-button"
                   className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white transition-colors"
                 >
                   <Square size={16} />
@@ -153,6 +206,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
                 <button
                   onClick={handleSend}
                   disabled={!input.trim()}
+                  data-testid="send-button"
                   className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
                 >
                   <Send size={16} />

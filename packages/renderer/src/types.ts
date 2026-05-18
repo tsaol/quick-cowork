@@ -10,6 +10,16 @@ export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: number;
+  attachments?: FileAttachment[];
+}
+
+export interface FileAttachment {
+  id: string;
+  name: string;
+  path: string;
+  mimeType: string;
+  size: number;
+  content?: string;
 }
 
 export interface StreamChunk {
@@ -27,6 +37,7 @@ export interface AppSettings {
   awsRegion?: string;
   ollamaHost?: string;
   theme: 'light' | 'dark' | 'system';
+  allowedFolders?: string[];
 }
 
 export const PROVIDER_MODELS: Record<string, string[]> = {
@@ -40,12 +51,101 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
   ollama: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'phi3'],
 };
 
+// Research types
+export interface WebSearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface WebSearchResponse {
+  query: string;
+  results: WebSearchResult[];
+}
+
+export interface FetchUrlResponse {
+  url: string;
+  title: string;
+  content: string;
+  summary: string;
+}
+
+export interface LocalSearchResult {
+  filePath: string;
+  fileName: string;
+  matchLine?: number;
+  matchText?: string;
+  size: number;
+  modifiedAt: number;
+}
+
+export interface LocalSearchOptions {
+  directory: string;
+  pattern?: string;
+  query?: string;
+  maxResults?: number;
+}
+
+export interface FileContentResponse {
+  filePath: string;
+  content: string;
+  size: number;
+}
+
+// Document generation types
+export type DocumentType = 'word' | 'excel' | 'ppt';
+
+export interface WordSection {
+  heading?: string;
+  paragraphs: string[];
+}
+
+export interface ExcelSheet {
+  name: string;
+  columns: string[];
+  rows: (string | number)[][];
+}
+
+export interface PptSlide {
+  title: string;
+  content: string[];
+}
+
+export interface WordDocumentRequest {
+  type: 'word';
+  title: string;
+  content: WordSection[];
+}
+
+export interface ExcelDocumentRequest {
+  type: 'excel';
+  title: string;
+  sheets: ExcelSheet[];
+}
+
+export interface PptDocumentRequest {
+  type: 'ppt';
+  title: string;
+  slides: PptSlide[];
+}
+
+export type DocumentGenerateRequest =
+  | WordDocumentRequest
+  | ExcelDocumentRequest
+  | PptDocumentRequest;
+
+export interface DocumentGenerateResponse {
+  success: boolean;
+  filePath?: string;
+  error?: string;
+}
+
 declare global {
   interface Window {
     quickCowork: {
       ping: () => Promise<string>;
       chat: {
-        send: (conversationId: string, content: string) => Promise<void>;
+        send: (conversationId: string, content: string, attachmentPaths?: string[]) => Promise<void>;
         onStream: (callback: (chunk: StreamChunk) => void) => () => void;
         abort: () => Promise<void>;
       };
@@ -58,6 +158,23 @@ declare global {
       settings: {
         get: () => Promise<AppSettings>;
         set: (settings: Partial<AppSettings>) => Promise<AppSettings>;
+      };
+      files: {
+        pick: () => Promise<string[]>;
+        pickFolder: () => Promise<string | null>;
+        read: (filePath: string) => Promise<FileAttachment | null>;
+        listAllowed: () => Promise<string[]>;
+        addFolder: () => Promise<string | null>;
+        removeFolder: (folderPath: string) => Promise<void>;
+      };
+      documents: {
+        generate: (request: DocumentGenerateRequest) => Promise<DocumentGenerateResponse>;
+      };
+      research: {
+        webSearch: (query: string) => Promise<WebSearchResponse>;
+        fetchUrl: (url: string) => Promise<FetchUrlResponse>;
+        localSearch: (options: LocalSearchOptions) => Promise<LocalSearchResult[]>;
+        fileContent: (filePath: string) => Promise<FileContentResponse>;
       };
     };
   }

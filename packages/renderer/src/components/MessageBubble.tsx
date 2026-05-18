@@ -1,6 +1,6 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Copy, Check, User, Bot } from 'lucide-react';
+import { Copy, Check, User, Bot, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '../lib/utils';
 import type { ChatMessage } from '../types';
@@ -55,11 +55,23 @@ function CodeBlock({
   );
 }
 
+function AttachmentBadge({ name }: { name: string }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-700/50 text-xs text-zinc-400 mr-1 mb-1">
+      <FileText size={11} className="text-blue-400" />
+      <span className="max-w-[120px] truncate">{name}</span>
+    </div>
+  );
+}
+
 export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
-    <div className={cn('flex gap-3 py-4', isUser ? 'flex-row-reverse' : 'flex-row')}>
+    <div
+      data-testid={`message-${isUser ? 'user' : 'assistant'}`}
+      className={cn('flex gap-3 py-4', isUser ? 'flex-row-reverse' : 'flex-row')}
+    >
       <div
         className={cn(
           'w-8 h-8 rounded-full flex items-center justify-center shrink-0',
@@ -70,6 +82,13 @@ export function MessageBubble({ message, isStreaming }: MessageBubbleProps) {
       </div>
 
       <div className={cn('max-w-[75%] min-w-0', isUser ? 'text-right' : 'text-left')}>
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="mb-1 flex flex-wrap">
+            {message.attachments.map((a) => (
+              <AttachmentBadge key={a.id} name={a.name} />
+            ))}
+          </div>
+        )}
         <div
           className={cn(
             'inline-block rounded-2xl px-4 py-2.5 text-sm leading-relaxed',

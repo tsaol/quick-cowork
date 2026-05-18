@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
@@ -14,9 +14,17 @@
     "@anthropic-ai/sdk": "^0.96.0",
     "@aws-sdk/client-bedrock-runtime": "^3.1048.0",
     "@quick-cowork/shared": "workspace:*",
-    "openai": "^6.38.0"
+    "better-sqlite3": "^12.10.0",
+    "cheerio": "^1.2.0",
+    "docx": "^9.6.1",
+    "exceljs": "^4.4.0",
+    "glob": "^13.0.6",
+    "openai": "^6.38.0",
+    "pptxgenjs": "^4.0.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/cheerio": "^1.0.0",
     "@types/node": "^25.8.0"
   }
 }

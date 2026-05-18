@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { ChatView } from './components/ChatView';
+import { SettingsView } from './components/SettingsView';
+import { DocumentGenerator } from './components/DocumentGenerator';
+import { ResearchView } from './components/ResearchView';
 import type { Conversation } from './types';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [view, setView] = useState<'chat' | 'settings' | 'research' | 'documents'>('chat');
 
   const loadConversations = useCallback(async () => {
     const list = await window.quickCowork.conversations.list();
@@ -21,6 +25,7 @@ export default function App() {
     const conv = await window.quickCowork.conversations.create();
     await loadConversations();
     setActiveId(conv.id);
+    setView('chat');
   };
 
   const handleDelete = async (id: string) => {
@@ -32,20 +37,34 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-zinc-900 text-zinc-100">
+    <div data-testid="app" className="flex h-screen bg-zinc-900 text-zinc-100">
       <Sidebar
         conversations={conversations}
         activeId={activeId}
-        onSelect={setActiveId}
+        onSelect={(id) => {
+          setActiveId(id);
+          setView('chat');
+        }}
         onCreate={handleCreate}
         onDelete={handleDelete}
-        onSettingsClick={() => {}}
+        onSettingsClick={() => setView('settings')}
+        onResearchClick={() => setView('research')}
+        onDocumentsClick={() => setView('documents')}
       />
-      <main className="flex-1 flex flex-col min-w-0">
-        {activeId ? (
+      <main data-testid="main-content" className="flex-1 flex flex-col min-w-0">
+        {view === 'documents' ? (
+          <DocumentGenerator onClose={() => setView('chat')} />
+        ) : view === 'settings' ? (
+          <SettingsView onBack={() => setView('chat')} />
+        ) : view === 'research' ? (
+          <ResearchView />
+        ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (
-          <div className="flex-1 flex items-center justify-center text-zinc-500">
+          <div
+            data-testid="empty-state"
+            className="flex-1 flex items-center justify-center text-zinc-500"
+          >
             <p>Select or create a conversation to start</p>
           </div>
         )}

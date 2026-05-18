@@ -1,46 +1,43 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import type Database from 'better-sqlite3';
 import { DEFAULT_SETTINGS } from '@quick-cowork/shared';
 import type { AppSettings } from '@quick-cowork/shared';
 
 export class SettingsStore {
-  private settings: AppSettings;
-  private filePath: string;
+  private db: Database.Database;
 
-  constructor(dataDir: string) {
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    this.filePath = path.join(dataDir, 'settings.json');
-    this.settings = this.load();
-  }
-
-  private load(): AppSettings {
-    try {
-      if (fs.existsSync(this.filePath)) {
-        const raw = fs.readFileSync(this.filePath, 'utf-8');
-        return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
-      }
-    } catch {
-      // fall through
-    }
-    return { ...DEFAULT_SETTINGS };
-  }
-
-  private save(): void {
-    fs.writeFileSync(this.filePath, JSON.stringify(this.settings, null, 2));
+  constructor(db: Database.Database) {
+    this.db = db;
   }
 
   get(): AppSettings {
-    return { ...this.settings };
+    const row = this.db
+      .prepare("SELECT value FROM settings WHERE key = 'app_settings'")
+      .get() as { value: string } | undefined;
+
+    if (row) {
+      try {
+        const stored = JSON.parse(row.value) as Partial<AppSettings>;
+        return { ...DEFAULT_SETTINGS, ...stored };
+      } catch {
+        return { ...DEFAULT_SETTINGS };
+      }
+    }
+
+    return { ...DEFAULT_SETTINGS };
   }
 
   set(partial: Partial<AppSettings>): AppSettings {
-    this.settings = { ...this.settings, ...partial };
+    const current = this.get();
+    const updated: AppSettings = { ...current, ...partial };
+
     if (partial.apiKeys) {
-      this.settings.apiKeys = { ...this.settings.apiKeys, ...partial.apiKeys };
+      updated.apiKeys = { ...current.apiKeys, ...partial.apiKeys };
     }
-    this.save();
-    return this.get();
+
+    this.db
+      .prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('app_settings', ?)")
+      .run(JSON.stringify(updated));
+
+    return { ...updated };
   }
 }

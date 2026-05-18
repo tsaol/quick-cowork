@@ -10,7 +10,7 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "turbo run build && concurrently --kill-others \"pnpm --filter @quick-cowork/renderer dev\" \"wait-on http://localhost:5173 && NODE_ENV=development electron packages/main/dist/index.js\"",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
@@ -19,14 +19,18 @@
     "package": "electron-builder --config electron-builder.yml"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
-    "typescript": "^5.8.0",
+    "@playwright/test": "^1.60.0",
+    "concurrently": "^9.2.1",
     "electron": "^35.0.0",
     "electron-builder": "^25.0.0",
     "eslint": "^9.0.0",
-    "prettier": "^3.5.0",
     "husky": "^9.0.0",
-    "lint-staged": "^15.0.0"
+    "lint-staged": "^15.0.0",
+    "playwright": "^1.60.0",
+    "prettier": "^3.5.0",
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.0",
+    "wait-on": "^9.0.10"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -37,5 +41,10 @@
       "prettier --write"
     ]
   },
-  "packageManager": "pnpm@11.1.2"
+  "packageManager": "pnpm@11.1.2",
+  "dependencies": {
+    "docx": "^9.6.1",
+    "exceljs": "^4.4.0",
+    "pptxgenjs": "^4.0.1"
+  }
 }

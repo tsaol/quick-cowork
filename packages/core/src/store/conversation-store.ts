@@ -1,87 +1,85 @@
-import fs from 'node:fs';
-import path from 'node:path';
-import type { Conversation, ChatMessage } from '@quick-cowork/shared';
-
-interface StoreData {
-  conversations: Conversation[];
-  messages: Record<string, ChatMessage[]>;
-}
+import type Database from 'better-sqlite3';
+import type { Conversation, ChatMessage, FileAttachment } from '@quick-cowork/shared';
 
 export class ConversationStore {
-  private data: StoreData = { conversations: [], messages: {} };
-  private filePath: string;
+  private db: Database.Database;
 
-  constructor(dataDir: string) {
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    this.filePath = path.join(dataDir, 'conversations.json');
-    this.load();
-  }
-
-  private load(): void {
-    try {
-      if (fs.existsSync(this.filePath)) {
-        const raw = fs.readFileSync(this.filePath, 'utf-8');
-        this.data = JSON.parse(raw);
-      }
-    } catch {
-      this.data = { conversations: [], messages: {} };
-    }
-  }
-
-  private save(): void {
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
+  constructor(db: Database.Database) {
+    this.db = db;
   }
 
   listConversations(): Conversation[] {
-    return [...this.data.conversations].sort((a, b) => b.updatedAt - a.updatedAt);
+    const rows = this.db
+      .prepare('SELECT id, title, created_at, updated_at FROM conversations ORDER BY updated_at DESC')
+      .all() as { id: string; title: string; created_at: number; updated_at: number }[];
+
+    return rows.map((r) => ({
+      id: r.id,
+      title: r.title,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
   }
 
   createConversation(title: string): Conversation {
-    const conv: Conversation = {
-      id: crypto.randomUUID(),
-      title,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    this.data.conversations.push(conv);
-    this.data.messages[conv.id] = [];
-    this.save();
-    return conv;
+    const id = crypto.randomUUID();
+    const now = Date.now();
+
+    this.db
+      .prepare('INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)')
+      .run(id, title, now, now);
+
+    return { id, title, createdAt: now, updatedAt: now };
   }
 
   deleteConversation(id: string): void {
-    this.data.conversations = this.data.conversations.filter((c) => c.id !== id);
-    delete this.data.messages[id];
-    this.save();
+    this.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(id);
+    this.db.prepare('DELETE FROM conversations WHERE id = ?').run(id);
   }
 
   getMessages(conversationId: string): ChatMessage[] {
-    return this.data.messages[conversationId] || [];
+    const rows = this.db
+      .prepare('SELECT id, role, content, timestamp, attachments FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC')
+      .all(conversationId) as { id: string; role: string; content: string; timestamp: number; attachments: string | null }[];
+
+    return rows.map((r) => ({
+      id: r.id,
+      role: r.role as ChatMessage['role'],
+      content: r.content,
+      timestamp: r.timestamp,
+      attachments: r.attachments ? JSON.parse(r.attachments) as FileAttachment[] : undefined,
+    }));
   }
 
   addMessage(conversationId: string, message: ChatMessage): void {
-    if (!this.data.messages[conversationId]) {
-      this.data.messages[conversationId] = [];
-    }
-    this.data.messages[conversationId].push(message);
+    const attachmentsJson = message.attachments ? JSON.stringify(message.attachments) : null;
 
-    const conv = this.data.conversations.find((c) => c.id === conversationId);
-    if (conv) {
-      conv.updatedAt = Date.now();
-      if (message.role === 'user' && conv.title === 'New Chat') {
-        conv.title = message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
+    this.db
+      .prepare('INSERT INTO messages (id, conversation_id, role, content, timestamp, attachments) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(message.id, conversationId, message.role, message.content, message.timestamp, attachmentsJson);
+
+    // Update conversation timestamp and auto-title
+    this.db
+      .prepare('UPDATE conversations SET updated_at = ? WHERE id = ?')
+      .run(Date.now(), conversationId);
+
+    if (message.role === 'user') {
+      const conv = this.db
+        .prepare('SELECT title FROM conversations WHERE id = ?')
+        .get(conversationId) as { title: string } | undefined;
+
+      if (conv && conv.title === 'New Chat') {
+        const newTitle = message.content.slice(0, 50) + (message.content.length > 50 ? '...' : '');
+        this.db
+          .prepare('UPDATE conversations SET title = ? WHERE id = ?')
+          .run(newTitle, conversationId);
       }
     }
-    this.save();
   }
 
   updateTitle(conversationId: string, title: string): void {
-    const conv = this.data.conversations.find((c) => c.id === conversationId);
-    if (conv) {
-      conv.title = title;
-      this.save();
-    }
+    this.db
+      .prepare('UPDATE conversations SET title = ? WHERE id = ?')
+      .run(title, conversationId);
   }
 }

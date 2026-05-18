@@ -6,24 +6,43 @@ import {
   Menu,
   globalShortcut,
   nativeImage,
+  dialog,
 } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import { IPC_CHANNELS } from '@quick-cowork/shared';
-import type { ChatMessage, StreamChunk } from '@quick-cowork/shared';
-import { ProviderManager, ConversationStore, SettingsStore } from '@quick-cowork/core';
+import type { ChatMessage, StreamChunk, LocalSearchOptions } from '@quick-cowork/shared';
+import {
+  ProviderManager,
+  AppDatabase,
+  ConversationStore,
+  SettingsStore,
+  FileService,
+  generateDocument,
+  getFileExtension,
+  getFileFilter,
+  webSearch,
+  fetchUrl,
+  localSearch,
+  readFileContent,
+} from '@quick-cowork/core';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const dataDir = path.join(app.getPath('userData'), 'data');
-const conversationStore = new ConversationStore(dataDir);
-const settingsStore = new SettingsStore(dataDir);
+const database = new AppDatabase(dataDir);
+const conversationStore = new ConversationStore(database.getDb());
+const settingsStore = new SettingsStore(database.getDb());
 const providerManager = new ProviderManager();
+const fileService = new FileService();
 
 let activeAbortController: AbortController | null = null;
 
 function configureProviders() {
-  providerManager.configure(settingsStore.get());
+  const settings = settingsStore.get();
+  providerManager.configure(settings);
+  fileService.setAllowedFolders(settings.allowedFolders || []);
 }
 
 function createWindow() {
@@ -126,20 +145,43 @@ function registerIpcHandlers() {
 
   ipcMain.handle(
     IPC_CHANNELS.CHAT_SEND,
-    async (_event, conversationId: string, content: string) => {
+    async (_event, conversationId: string, content: string, attachmentPaths?: string[]) => {
       activeAbortController?.abort();
       activeAbortController = new AbortController();
+
+      // Read attached files
+      const attachments = [];
+      if (attachmentPaths && attachmentPaths.length > 0) {
+        for (const filePath of attachmentPaths) {
+          const attachment = await fileService.readFile(filePath);
+          if (attachment) {
+            attachments.push(attachment);
+          }
+        }
+      }
 
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: 'user',
         content,
         timestamp: Date.now(),
+        attachments: attachments.length > 0 ? attachments : undefined,
       };
       conversationStore.addMessage(conversationId, userMessage);
 
       const history = conversationStore.getMessages(conversationId);
-      const chatInputs = history.map((m) => ({ role: m.role, content: m.content }));
+
+      // Build chat inputs, including file content in the message
+      const chatInputs = history.map((m) => {
+        let msgContent = m.content;
+        if (m.attachments && m.attachments.length > 0) {
+          const fileContext = m.attachments
+            .map((a) => `[File: ${a.name}]\n${a.content}`)
+            .join('\n\n');
+          msgContent = `${fileContext}\n\n${m.content}`;
+        }
+        return { role: m.role, content: msgContent };
+      });
 
       const settings = settingsStore.get();
       let fullResponse = '';
@@ -202,6 +244,118 @@ function registerIpcHandlers() {
     configureProviders();
     return updated;
   });
+
+  // File access handlers
+  ipcMain.handle(IPC_CHANNELS.FILE_PICK, async () => {
+    if (!mainWindow) return [];
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'All Supported', extensions: ['txt', 'md', 'json', 'js', 'ts', 'tsx', 'jsx', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'html', 'css', 'xml', 'yaml', 'yml', 'sql', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'pdf'] },
+        { name: 'All Files', extensions: ['*'] },
+      ],
+    });
+
+    if (result.canceled) return [];
+
+    const validPaths = result.filePaths.filter((fp) => fileService.isPathAllowed(fp));
+    return validPaths;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_PICK_FOLDER, async () => {
+    if (!mainWindow) return null;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_READ, async (_event, filePath: string) => {
+    return fileService.readFile(filePath);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_LIST_ALLOWED, () => {
+    return fileService.getAllowedFolders();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_ADD_FOLDER, async () => {
+    if (!mainWindow) return null;
+
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+
+    const folder = result.filePaths[0];
+    fileService.addAllowedFolder(folder);
+
+    const settings = settingsStore.get();
+    const folders = settings.allowedFolders || [];
+    if (!folders.includes(folder)) {
+      folders.push(folder);
+      settingsStore.set({ allowedFolders: folders });
+    }
+
+    return folder;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.FILE_REMOVE_FOLDER, (_event, folderPath: string) => {
+    fileService.removeAllowedFolder(folderPath);
+
+    const settings = settingsStore.get();
+    const folders = (settings.allowedFolders || []).filter((f) => f !== folderPath);
+    settingsStore.set({ allowedFolders: folders });
+  });
+
+  // Document generation handler
+  ipcMain.handle(IPC_CHANNELS.DOCUMENT_GENERATE, async (_event, request) => {
+    if (!mainWindow) return { success: false, error: 'No window available' };
+
+    try {
+      const ext = getFileExtension(request.type);
+      const filter = getFileFilter(request.type);
+
+      const result = await dialog.showSaveDialog(mainWindow, {
+        defaultPath: `${request.title}${ext}`,
+        filters: [filter],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: 'Save cancelled' };
+      }
+
+      const buffer = await generateDocument(request);
+      fs.writeFileSync(result.filePath, buffer);
+      return { success: true, filePath: result.filePath };
+    } catch (err) {
+      return { success: false, error: err instanceof Error ? err.message : 'Generation failed' };
+    }
+  });
+
+  // Research handlers
+  ipcMain.handle(IPC_CHANNELS.RESEARCH_WEB_SEARCH, async (_event, query: string) => {
+    return webSearch(query);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.RESEARCH_FETCH_URL, async (_event, url: string) => {
+    return fetchUrl(url);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.RESEARCH_LOCAL_SEARCH,
+    async (_event, options: LocalSearchOptions) => {
+      return localSearch(options);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.RESEARCH_FILE_CONTENT, (_event, filePath: string) => {
+    return readFileContent(filePath);
+  });
 }
 
 app.whenReady().then(() => {
@@ -226,4 +380,5 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  database.close();
 });
