@@ -225,6 +225,91 @@ export interface IntegrationStatus {
   calendar: boolean;
 }
 
+// Custom agents
+export interface AgentDefinition {
+  id: string;
+  name: string;
+  instructions: string;
+  tools: string[];
+  model?: string;
+  temperature?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type AgentInput = Omit<AgentDefinition, 'id' | 'createdAt' | 'updatedAt'>;
+
+export interface AgentExecutionResult {
+  agentId: string;
+  output: string;
+  toolCalls: { tool: string; input: Record<string, unknown>; output: unknown }[];
+  duration: number;
+}
+
+// Spaces (collaborative workspaces)
+export interface Space {
+  id: string;
+  name: string;
+  description: string;
+  ownerId: string;
+  members: SpaceMember[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SpaceMember {
+  id: string;
+  name: string;
+  role: 'owner' | 'editor' | 'viewer';
+  online: boolean;
+  lastSeen: number;
+}
+
+export interface SpaceMessage {
+  id: string;
+  spaceId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  type: 'text' | 'ai_response' | 'system';
+  timestamp: number;
+}
+
+export interface SpaceInvite {
+  spaceId: string;
+  email: string;
+  role: 'editor' | 'viewer';
+}
+
+export interface SyncState {
+  lastSyncAt: number;
+  pendingChanges: number;
+  connected: boolean;
+}
+
+// Briefing
+export interface BriefingConfig {
+  enabled: boolean;
+  time: string;
+  includeCalendar: boolean;
+  includeGmail: boolean;
+  includeMemories: boolean;
+}
+
+export interface BriefingSection {
+  title: string;
+  items: string[];
+  source: 'calendar' | 'gmail' | 'memory';
+}
+
+export interface DailyBriefing {
+  id: string;
+  date: string;
+  summary: string;
+  sections: BriefingSection[];
+  generatedAt: number;
+}
+
 declare global {
   interface Window {
     quickCowork: {
@@ -292,6 +377,40 @@ declare global {
         calendarCreate: (event: Omit<CalendarEvent, 'id'>) => Promise<CalendarEvent>;
         oauthStart: (provider: string) => Promise<void>;
         oauthStatus: () => Promise<IntegrationStatus>;
+      };
+      agents: {
+        create: (def: AgentInput) => Promise<AgentDefinition>;
+        update: (id: string, def: Partial<AgentInput>) => Promise<AgentDefinition>;
+        delete: (id: string) => Promise<void>;
+        list: () => Promise<AgentDefinition[]>;
+        get: (id: string) => Promise<AgentDefinition | null>;
+        execute: (agentId: string, message: string) => Promise<AgentExecutionResult>;
+      };
+      spaces: {
+        create: (name: string, description: string) => Promise<Space>;
+        join: (spaceId: string, role?: 'editor' | 'viewer') => Promise<Space | null>;
+        leave: (spaceId: string) => Promise<void>;
+        list: () => Promise<Space[]>;
+        get: (spaceId: string) => Promise<Space | null>;
+        invite: (
+          spaceId: string,
+          email: string,
+          role: 'editor' | 'viewer',
+        ) => Promise<SpaceMember | null>;
+        members: (spaceId: string) => Promise<SpaceMember[]>;
+        messages: (spaceId: string) => Promise<SpaceMessage[]>;
+        send: (
+          spaceId: string,
+          content: string,
+          type?: SpaceMessage['type'],
+        ) => Promise<SpaceMessage>;
+        sync: (spaceId: string) => Promise<SyncState>;
+      };
+      briefing: {
+        generate: () => Promise<DailyBriefing>;
+        getLatest: () => Promise<DailyBriefing | null>;
+        configure: (config: BriefingConfig) => Promise<BriefingConfig>;
+        getConfig: () => Promise<BriefingConfig>;
       };
     };
   }

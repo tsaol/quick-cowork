@@ -6,13 +6,14 @@ import { DocumentGenerator } from './components/DocumentGenerator';
 import { ResearchView } from './components/ResearchView';
 import { MemoryView } from './components/MemoryView';
 import { IntegrationsView } from './components/IntegrationsView';
+import { AgentsView } from './components/AgentsView';
 import type { Conversation } from './types';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<
-    'chat' | 'settings' | 'research' | 'documents' | 'memory' | 'integrations'
+    'chat' | 'settings' | 'research' | 'documents' | 'memory' | 'integrations' | 'agents'
   >('chat');
 
   const loadConversations = useCallback(async () => {
@@ -56,6 +57,7 @@ export default function App() {
         onDocumentsClick={() => setView('documents')}
         onMemoryClick={() => setView('memory')}
         onIntegrationsClick={() => setView('integrations')}
+        onAgentsClick={() => setView('agents')}
       />
       <main data-testid="main-content" className="flex-1 flex flex-col min-w-0">
         {view === 'documents' ? (
@@ -68,6 +70,8 @@ export default function App() {
           <MemoryView />
         ) : view === 'integrations' ? (
           <IntegrationsView />
+        ) : view === 'agents' ? (
+          <AgentsView />
         ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (

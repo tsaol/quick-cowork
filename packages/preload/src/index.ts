@@ -24,7 +24,37 @@ import type {
   GmailMessage,
   CalendarEvent,
   IntegrationStatus,
+  AgentDefinition,
+  AgentExecutionResult,
+  Space,
+  SpaceMember,
+  SpaceMessage,
+  SyncState,
+  BriefingConfig,
+  DailyBriefing,
+  Workflow,
+  WorkflowAction,
+  WorkflowTrigger,
+  WorkflowRun,
 } from '@quick-cowork/shared';
+
+type AgentInput = Omit<AgentDefinition, 'id' | 'createdAt' | 'updatedAt'>;
+
+interface WorkflowCreateInput {
+  name: string;
+  description?: string;
+  trigger: WorkflowTrigger;
+  actions: WorkflowAction[];
+  enabled?: boolean;
+}
+
+interface WorkflowUpdateInput {
+  name?: string;
+  description?: string;
+  trigger?: WorkflowTrigger;
+  actions?: WorkflowAction[];
+  enabled?: boolean;
+}
 
 const api = {
   ping: (): Promise<string> => ipcRenderer.invoke(IPC_CHANNELS.PING),
@@ -134,6 +164,80 @@ const api = {
       ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_OAUTH_START, provider),
     oauthStatus: (): Promise<IntegrationStatus> =>
       ipcRenderer.invoke(IPC_CHANNELS.INTEGRATION_OAUTH_STATUS),
+  },
+
+  agents: {
+    create: (def: AgentInput): Promise<AgentDefinition> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_CREATE, def),
+    update: (id: string, def: Partial<AgentInput>): Promise<AgentDefinition> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_UPDATE, id, def),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_DELETE, id),
+    list: (): Promise<AgentDefinition[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_LIST),
+    get: (id: string): Promise<AgentDefinition | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_GET, id),
+    execute: (agentId: string, message: string): Promise<AgentExecutionResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AGENT_EXECUTE, agentId, message),
+  },
+
+  spaces: {
+    create: (name: string, description: string): Promise<Space> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_CREATE, name, description),
+    join: (spaceId: string, role?: 'editor' | 'viewer'): Promise<Space | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_JOIN, spaceId, role),
+    leave: (spaceId: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_LEAVE, spaceId),
+    list: (): Promise<Space[]> => ipcRenderer.invoke(IPC_CHANNELS.SPACE_LIST),
+    get: (spaceId: string): Promise<Space | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_GET, spaceId),
+    invite: (
+      spaceId: string,
+      email: string,
+      role: 'editor' | 'viewer',
+    ): Promise<SpaceMember | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_INVITE, spaceId, email, role),
+    members: (spaceId: string): Promise<SpaceMember[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_MEMBERS, spaceId),
+    messages: (spaceId: string): Promise<SpaceMessage[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_MESSAGES, spaceId),
+    send: (
+      spaceId: string,
+      content: string,
+      type?: SpaceMessage['type'],
+    ): Promise<SpaceMessage> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_SEND, spaceId, content, type),
+    sync: (spaceId: string): Promise<SyncState> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SPACE_SYNC, spaceId),
+  },
+
+  briefing: {
+    generate: (): Promise<DailyBriefing> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BRIEFING_GENERATE),
+    getLatest: (): Promise<DailyBriefing | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BRIEFING_GET_LATEST),
+    configure: (config: BriefingConfig): Promise<BriefingConfig> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BRIEFING_CONFIGURE, config),
+    getConfig: (): Promise<BriefingConfig> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BRIEFING_GET_CONFIG),
+  },
+
+  workflows: {
+    list: (): Promise<Workflow[]> => ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_LIST),
+    get: (id: string): Promise<Workflow | null> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_GET, id),
+    create: (input: WorkflowCreateInput): Promise<Workflow> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_CREATE, input),
+    update: (id: string, input: WorkflowUpdateInput): Promise<Workflow> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_UPDATE, id, input),
+    delete: (id: string): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_DELETE, id),
+    execute: (id: string): Promise<WorkflowRun> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_EXECUTE, id),
+    toggle: (id: string, enabled: boolean): Promise<Workflow> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_TOGGLE, id, enabled),
+    history: (id: string, limit?: number): Promise<WorkflowRun[]> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WORKFLOW_HISTORY, id, limit),
   },
 };
 

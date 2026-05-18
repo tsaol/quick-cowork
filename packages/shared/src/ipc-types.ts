@@ -38,6 +38,34 @@ export const IPC_CHANNELS = {
   INTEGRATION_CALENDAR_CREATE: 'integration:calendar:create',
   INTEGRATION_OAUTH_START: 'integration:oauth:start',
   INTEGRATION_OAUTH_STATUS: 'integration:oauth:status',
+  SPACE_CREATE: 'space:create',
+  SPACE_JOIN: 'space:join',
+  SPACE_LEAVE: 'space:leave',
+  SPACE_LIST: 'space:list',
+  SPACE_GET: 'space:get',
+  SPACE_INVITE: 'space:invite',
+  SPACE_MEMBERS: 'space:members',
+  SPACE_MESSAGES: 'space:messages',
+  SPACE_SEND: 'space:send',
+  SPACE_SYNC: 'space:sync',
+  AGENT_CREATE: 'agent:create',
+  AGENT_UPDATE: 'agent:update',
+  AGENT_DELETE: 'agent:delete',
+  AGENT_LIST: 'agent:list',
+  AGENT_GET: 'agent:get',
+  AGENT_EXECUTE: 'agent:execute',
+  BRIEFING_GENERATE: 'briefing:generate',
+  BRIEFING_GET_LATEST: 'briefing:get-latest',
+  BRIEFING_CONFIGURE: 'briefing:configure',
+  BRIEFING_GET_CONFIG: 'briefing:get-config',
+  WORKFLOW_CREATE: 'workflow:create',
+  WORKFLOW_UPDATE: 'workflow:update',
+  WORKFLOW_DELETE: 'workflow:delete',
+  WORKFLOW_LIST: 'workflow:list',
+  WORKFLOW_GET: 'workflow:get',
+  WORKFLOW_EXECUTE: 'workflow:execute',
+  WORKFLOW_TOGGLE: 'workflow:toggle',
+  WORKFLOW_HISTORY: 'workflow:history',
 } as const;
 
 export interface ChatMessage {
@@ -88,6 +116,30 @@ export interface AppSettings {
     gmail?: { refreshToken?: string; clientId?: string; clientSecret?: string };
     calendar?: { refreshToken?: string; clientId?: string; clientSecret?: string };
   };
+  briefing?: BriefingConfig;
+  spaceLocalUser?: { id: string; name: string };
+}
+
+export interface BriefingConfig {
+  enabled: boolean;
+  time: string;
+  includeCalendar: boolean;
+  includeGmail: boolean;
+  includeMemories: boolean;
+}
+
+export interface DailyBriefing {
+  id: string;
+  date: string;
+  summary: string;
+  sections: BriefingSection[];
+  generatedAt: number;
+}
+
+export interface BriefingSection {
+  title: string;
+  items: string[];
+  source: 'calendar' | 'gmail' | 'memory';
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -288,4 +340,125 @@ export interface IntegrationStatus {
   slack: boolean;
   gmail: boolean;
   calendar: boolean;
+}
+
+// Spaces (collaborative workspaces)
+export interface Space {
+  id: string;
+  name: string;
+  description: string;
+  ownerId: string;
+  members: SpaceMember[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface SpaceMember {
+  id: string;
+  name: string;
+  role: 'owner' | 'editor' | 'viewer';
+  online: boolean;
+  lastSeen: number;
+}
+
+export interface SpaceMessage {
+  id: string;
+  spaceId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  type: 'text' | 'ai_response' | 'system';
+  timestamp: number;
+}
+
+export interface SpaceInvite {
+  spaceId: string;
+  email: string;
+  role: 'editor' | 'viewer';
+}
+
+export interface SyncState {
+  lastSyncAt: number;
+  pendingChanges: number;
+  connected: boolean;
+}
+
+// Agent (custom no-code) types
+export interface AgentDefinition {
+  id: string;
+  name: string;
+  instructions: string;
+  tools: string[];
+  model?: string;
+  temperature?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface AgentExecutionResult {
+  agentId: string;
+  output: string;
+  toolCalls: { tool: string; input: Record<string, unknown>; output: unknown }[];
+  duration: number;
+}
+
+export type AgentToolName =
+  | 'web_search'
+  | 'file_read'
+  | 'memory_search'
+  | 'generate_document';
+
+// Workflow (M9) types
+export interface ScheduleTriggerConfig {
+  cron: string;
+  time?: string;
+}
+
+export interface EventTriggerConfig {
+  source: 'email' | 'calendar' | 'slack';
+  condition: string;
+}
+
+export interface WorkflowTrigger {
+  type: 'schedule' | 'event';
+  config: ScheduleTriggerConfig | EventTriggerConfig;
+}
+
+export type WorkflowActionType =
+  | 'send_slack'
+  | 'send_email'
+  | 'generate_doc'
+  | 'ai_process'
+  | 'save_memory';
+
+export interface WorkflowAction {
+  id: string;
+  type: WorkflowActionType;
+  config: Record<string, unknown>;
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  trigger: WorkflowTrigger;
+  actions: WorkflowAction[];
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface WorkflowActionResult {
+  actionId: string;
+  output: unknown;
+  error?: string;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: 'success' | 'failed' | 'running';
+  startedAt: number;
+  completedAt?: number;
+  results: WorkflowActionResult[];
 }

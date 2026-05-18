@@ -8,6 +8,7 @@ import {
   nativeImage,
   dialog,
   shell,
+  Notification,
 } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -18,6 +19,12 @@ import type {
   LocalSearchOptions,
   McpServerConfig,
   CalendarEvent,
+  AgentDefinition,
+  SpaceMessage,
+  WorkflowTrigger,
+  WorkflowAction,
+  BriefingConfig,
+  DailyBriefing,
 } from '@quick-cowork/shared';
 import {
   ProviderManager,
@@ -36,7 +43,17 @@ import {
   MemoryStore,
   IntegrationManager,
   OAuthManager,
+  AgentStore,
+  AgentExecutor,
+  SpaceStore,
+  SyncManager,
+  WorkflowStore,
+  WorkflowEngine,
+  BriefingStore,
+  BriefingGenerator,
+  BriefingScheduler,
 } from '@quick-cowork/core';
+import type { AgentInput } from '@quick-cowork/core';
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -53,6 +70,52 @@ let memoryStore = new MemoryStore(database.getDb(), embeddingManager);
 
 const integrationManager = new IntegrationManager();
 const oauthManager = new OAuthManager();
+const agentStore = new AgentStore(database.getDb());
+const spaceStore = new SpaceStore(database.getDb());
+const syncManager = new SyncManager(settingsStore);
+const workflowStore = new WorkflowStore(database.getDb());
+const workflowEngine = new WorkflowEngine({
+  store: workflowStore,
+  integrations: integrationManager,
+  getMemoryStore: () => memoryStore,
+  providers: providerManager,
+  getSettings: () => settingsStore.get(),
+  outputDir: path.join(dataDir, 'workflow-output'),
+});
+
+const briefingStore = new BriefingStore(database.getDb());
+const briefingGenerator = new BriefingGenerator({
+  integrationManager,
+  getMemoryStore: () => memoryStore,
+  providerManager,
+  getSettings: () => settingsStore.get(),
+});
+const briefingScheduler = new BriefingScheduler({
+  generator: briefingGenerator,
+  store: briefingStore,
+  getSettings: () => settingsStore.get(),
+  onBriefingReady: (briefing: DailyBriefing) => {
+    showBriefingNotification(briefing);
+  },
+});
+
+function showBriefingNotification(briefing: DailyBriefing) {
+  if (Notification.isSupported()) {
+    const notification = new Notification({
+      title: 'Daily Briefing Ready',
+      body: briefing.summary.slice(0, 200),
+    });
+    notification.on('click', () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      } else {
+        createWindow();
+      }
+    });
+    notification.show();
+  }
+}
 
 let activeAbortController: AbortController | null = null;
 
@@ -526,6 +589,222 @@ function registerIpcHandlers() {
   ipcMain.handle(IPC_CHANNELS.INTEGRATION_OAUTH_STATUS, () => {
     return integrationManager.getStatus();
   });
+
+  // Agent handlers
+  ipcMain.handle(IPC_CHANNELS.AGENT_CREATE, (_event, input: AgentInput) => {
+    return agentStore.create(input);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.AGENT_UPDATE,
+    (_event, id: string, input: Partial<AgentInput>) => {
+      return agentStore.update(id, input);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.AGENT_DELETE, (_event, id: string) => {
+    agentStore.delete(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AGENT_LIST, (): AgentDefinition[] => {
+    return agentStore.list();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AGENT_GET, (_event, id: string) => {
+    return agentStore.get(id);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.AGENT_EXECUTE,
+    async (_event, agentId: string, message: string) => {
+      const agent = agentStore.get(agentId);
+      if (!agent) {
+        throw new Error(`Agent not found: ${agentId}`);
+      }
+      const executor = new AgentExecutor({
+        providerManager,
+        settings: settingsStore.get(),
+        memoryStore,
+        fileService,
+      });
+      return executor.execute(agent, message);
+    },
+  );
+
+  // Spaces handlers
+  ipcMain.handle(
+    IPC_CHANNELS.SPACE_CREATE,
+    (_event, name: string, description: string) => {
+      const user = syncManager.getLocalUser();
+      const space = spaceStore.createSpace(name, description, user.id, user.name);
+      syncManager.markSynced(space.id);
+      return space;
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.SPACE_JOIN,
+    (_event, spaceId: string, role?: 'editor' | 'viewer') => {
+      const user = syncManager.getLocalUser();
+      const space = spaceStore.joinSpace(spaceId, user.id, user.name, role ?? 'viewer');
+      if (space) syncManager.markSynced(space.id);
+      return space;
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_LEAVE, (_event, spaceId: string) => {
+    const user = syncManager.getLocalUser();
+    spaceStore.leaveSpace(spaceId, user.id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_LIST, () => {
+    const user = syncManager.getLocalUser();
+    return spaceStore.listSpaces(user.id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_GET, (_event, spaceId: string) => {
+    const user = syncManager.getLocalUser();
+    spaceStore.touchPresence(spaceId, user.id);
+    return spaceStore.getSpace(spaceId);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.SPACE_INVITE,
+    (_event, spaceId: string, email: string, role: 'editor' | 'viewer') => {
+      const userId = `invite:${email}`;
+      return spaceStore.invite(spaceId, userId, email, role);
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_MEMBERS, (_event, spaceId: string) => {
+    return spaceStore.getMembers(spaceId);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_MESSAGES, (_event, spaceId: string) => {
+    return spaceStore.getMessages(spaceId);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.SPACE_SEND,
+    (_event, spaceId: string, content: string, type?: SpaceMessage['type']) => {
+      const user = syncManager.getLocalUser();
+      syncManager.markPending(spaceId);
+      const message = spaceStore.sendMessage({
+        spaceId,
+        senderId: user.id,
+        senderName: user.name,
+        content,
+        type: type ?? 'text',
+      });
+      syncManager.markSynced(spaceId);
+      return message;
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.SPACE_SYNC, (_event, spaceId: string) => {
+    return syncManager.getSyncState(spaceId);
+  });
+
+  // Briefing handlers
+  ipcMain.handle(IPC_CHANNELS.BRIEFING_GENERATE, async () => {
+    const briefing = await briefingGenerator.generate();
+    briefingStore.save(briefing);
+    return briefing;
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BRIEFING_GET_LATEST, () => {
+    return briefingStore.getLatest();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BRIEFING_GET_CONFIG, () => {
+    const settings = settingsStore.get();
+    return (
+      settings.briefing || {
+        enabled: false,
+        time: '08:00',
+        includeCalendar: true,
+        includeGmail: true,
+        includeMemories: true,
+      }
+    );
+  });
+
+  ipcMain.handle(IPC_CHANNELS.BRIEFING_CONFIGURE, (_event, config: BriefingConfig) => {
+    settingsStore.set({ briefing: config });
+    briefingScheduler.restart();
+    return config;
+  });
+
+  // Workflow handlers
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_CREATE,
+    (
+      _event,
+      input: {
+        name: string;
+        description?: string;
+        trigger: WorkflowTrigger;
+        actions: WorkflowAction[];
+        enabled?: boolean;
+      },
+    ) => {
+      const workflow = workflowStore.create(input);
+      if (workflow.enabled) workflowEngine.start(workflow);
+      return workflow;
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_UPDATE,
+    (
+      _event,
+      id: string,
+      input: {
+        name?: string;
+        description?: string;
+        trigger?: WorkflowTrigger;
+        actions?: WorkflowAction[];
+        enabled?: boolean;
+      },
+    ) => {
+      const workflow = workflowStore.update(id, input);
+      workflowEngine.refresh(workflow);
+      return workflow;
+    },
+  );
+
+  ipcMain.handle(IPC_CHANNELS.WORKFLOW_DELETE, (_event, id: string) => {
+    workflowEngine.stop(id);
+    workflowStore.delete(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WORKFLOW_LIST, () => {
+    return workflowStore.list();
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WORKFLOW_GET, (_event, id: string) => {
+    return workflowStore.get(id);
+  });
+
+  ipcMain.handle(IPC_CHANNELS.WORKFLOW_EXECUTE, async (_event, id: string) => {
+    return workflowEngine.executeWorkflow(id);
+  });
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_TOGGLE,
+    (_event, id: string, enabled: boolean) => {
+      const workflow = workflowStore.toggle(id, enabled);
+      workflowEngine.refresh(workflow);
+      return workflow;
+    },
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.WORKFLOW_HISTORY,
+    (_event, id: string, limit?: number) => {
+      return workflowStore.getHistory(id, limit);
+    },
+  );
 }
 
 app.whenReady().then(async () => {
@@ -541,6 +820,12 @@ app.whenReady().then(async () => {
       console.error('Failed to connect MCP servers:', err);
     });
   }
+
+  if (settings.briefing?.enabled) {
+    briefingScheduler.start();
+  }
+
+  workflowEngine.startAll();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -558,6 +843,8 @@ app.on('window-all-closed', () => {
 app.on('will-quit', async (event) => {
   globalShortcut.unregisterAll();
   event.preventDefault();
+  briefingScheduler.stop();
+  workflowEngine.stopAll();
   try {
     await integrationManager.cleanup();
   } catch (err) {

@@ -1,4 +1,4 @@
-import { Plus, Settings, Trash2, MessageSquare, Search, FileText, Brain, Plug } from 'lucide-react';
+import { Plus, Settings, Trash2, MessageSquare, Search, FileText, Brain, Plug, Bot, Users } from 'lucide-react';
 import { cn, formatDate } from '../lib/utils';
 import type { Conversation } from '../types';
 
@@ -13,6 +13,8 @@ interface SidebarProps {
   onDocumentsClick: () => void;
   onMemoryClick?: () => void;
   onIntegrationsClick?: () => void;
+  onAgentsClick?: () => void;
+  onSpacesClick?: () => void;
 }
 
 export function Sidebar({
@@ -26,6 +28,8 @@ export function Sidebar({
   onDocumentsClick,
   onMemoryClick,
   onIntegrationsClick,
+  onAgentsClick,
+  onSpacesClick,
 }: SidebarProps) {
   return (
     <div data-testid="sidebar" className="w-[280px] flex flex-col bg-zinc-950 border-r border-zinc-800 h-screen">
@@ -117,6 +121,22 @@ export function Sidebar({
         >
           <Plug size={16} />
           Integrations
+        </button>
+        <button
+          onClick={onAgentsClick}
+          data-testid="agents-button"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200 text-sm"
+        >
+          <Bot size={16} />
+          Agents
+        </button>
+        <button
+          onClick={onSpacesClick}
+          data-testid="spaces-button"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors text-zinc-400 hover:text-zinc-200 text-sm"
+        >
+          <Users size={16} />
+          Spaces
         </button>
         <button
           onClick={onSettingsClick}

@@ -12,3 +12,7 @@ export { generateDocument, generateWord, generateExcel, generatePpt, getFileExte
 export { webSearch, fetchUrl, localSearch, readFileContent } from './research/index.js';
 export * from './memory/index.js';
 export * from './integrations/index.js';
+export * from './spaces/index.js';
+export * from './agents/index.js';
+export * from './workflows/index.js';
+export * from './briefing/index.js';

@@ -62,6 +62,92 @@ const MIGRATIONS: { version: number; sql: string }[] = [
       INSERT OR REPLACE INTO schema_version (version) VALUES (2);
     `,
   },
+  {
+    version: 3,
+    sql: `
+      CREATE TABLE IF NOT EXISTS spaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        owner_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS space_members (
+        space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL,
+        user_name TEXT NOT NULL,
+        role TEXT DEFAULT 'viewer',
+        last_seen INTEGER,
+        PRIMARY KEY (space_id, user_id)
+      );
+      CREATE TABLE IF NOT EXISTS space_messages (
+        id TEXT PRIMARY KEY,
+        space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+        sender_id TEXT NOT NULL,
+        sender_name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        type TEXT DEFAULT 'text',
+        timestamp INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_space_messages ON space_messages(space_id, timestamp);
+      INSERT OR REPLACE INTO schema_version (version) VALUES (3);
+    `,
+  },
+  {
+    version: 4,
+    sql: `
+      CREATE TABLE IF NOT EXISTS agents (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        instructions TEXT NOT NULL,
+        tools TEXT DEFAULT '[]',
+        model TEXT,
+        temperature REAL DEFAULT 0.7,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      INSERT OR REPLACE INTO schema_version (version) VALUES (4);
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      CREATE TABLE IF NOT EXISTS briefings (
+        id TEXT PRIMARY KEY,
+        date TEXT NOT NULL UNIQUE,
+        summary TEXT NOT NULL,
+        sections TEXT DEFAULT '[]',
+        generated_at INTEGER NOT NULL
+      );
+      INSERT OR REPLACE INTO schema_version (version) VALUES (5);
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      CREATE TABLE IF NOT EXISTS workflows (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT DEFAULT '',
+        trigger TEXT NOT NULL,
+        actions TEXT NOT NULL,
+        enabled INTEGER DEFAULT 1,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS workflow_runs (
+        id TEXT PRIMARY KEY,
+        workflow_id TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+        status TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        completed_at INTEGER,
+        results TEXT DEFAULT '[]'
+      );
+      CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow ON workflow_runs(workflow_id);
+      INSERT OR REPLACE INTO schema_version (version) VALUES (6);
+    `,
+  },
 ];
 
 export class AppDatabase {
