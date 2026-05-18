@@ -7,13 +7,16 @@ import { ResearchView } from './components/ResearchView';
 import { MemoryView } from './components/MemoryView';
 import { IntegrationsView } from './components/IntegrationsView';
 import { AgentsView } from './components/AgentsView';
+import { SpacesView } from './components/SpacesView';
+import { BriefingView } from './components/BriefingView';
+import { WorkflowsView } from './components/WorkflowsView';
 import type { Conversation } from './types';
 
 export default function App() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [view, setView] = useState<
-    'chat' | 'settings' | 'research' | 'documents' | 'memory' | 'integrations' | 'agents'
+    'chat' | 'settings' | 'research' | 'documents' | 'memory' | 'integrations' | 'agents' | 'spaces' | 'briefing' | 'workflows'
   >('chat');
 
   const loadConversations = useCallback(async () => {
@@ -58,6 +61,9 @@ export default function App() {
         onMemoryClick={() => setView('memory')}
         onIntegrationsClick={() => setView('integrations')}
         onAgentsClick={() => setView('agents')}
+        onSpacesClick={() => setView('spaces')}
+        onBriefingClick={() => setView('briefing')}
+        onWorkflowsClick={() => setView('workflows')}
       />
       <main data-testid="main-content" className="flex-1 flex flex-col min-w-0">
         {view === 'documents' ? (
@@ -72,6 +78,10 @@ export default function App() {
           <IntegrationsView />
         ) : view === 'agents' ? (
           <AgentsView />
+        ) : view === 'spaces' ? (
+          <SpacesView />
+        ) : view === 'briefing' ? (
+          <BriefingView />
         ) : activeId ? (
           <ChatView conversationId={activeId} />
         ) : (
