@@ -2,7 +2,12 @@ import { McpClient } from './mcp-client.js';
 import { SlackAdapter } from './slack-adapter.js';
 import { GmailAdapter } from './gmail-adapter.js';
 import { CalendarAdapter } from './calendar-adapter.js';
-import type { AppSettings, McpServerConfig, IntegrationStatus } from '@quick-cowork/shared';
+import type {
+  AppSettings,
+  McpServerConfig,
+  IntegrationStatus,
+  McpInvokeResponse,
+} from '@quick-cowork/shared';
 
 export class IntegrationManager {
   public readonly mcp: McpClient;
@@ -48,6 +53,41 @@ export class IntegrationManager {
       gmail: this.gmail.isConfigured(),
       calendar: this.calendar.isConfigured(),
     };
+  }
+
+  /**
+   * Find an MCP server (id) that provides a tool with the given name.
+   * Returns the first match, or null if no connected MCP server exposes it.
+   */
+  async findMcpToolProvider(toolName: string): Promise<string | null> {
+    for (const serverId of this.mcp.listServers()) {
+      try {
+        const tools = await this.mcp.listTools(serverId);
+        if (tools.some((t) => t.name === toolName)) {
+          return serverId;
+        }
+      } catch {
+        // skip servers that fail to list tools
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Invoke a tool by name. If a connected MCP server provides a tool with
+   * that name, route through MCP. Otherwise fall back to the direct adapter
+   * action specified by `fallback`.
+   */
+  async invokeTool<T>(
+    toolName: string,
+    args: Record<string, unknown>,
+    fallback: () => Promise<T>,
+  ): Promise<McpInvokeResponse | T> {
+    const serverId = await this.findMcpToolProvider(toolName);
+    if (serverId) {
+      return this.mcp.invoke(serverId, toolName, args);
+    }
+    return fallback();
   }
 
   async cleanup(): Promise<void> {

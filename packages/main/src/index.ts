@@ -494,22 +494,28 @@ function registerIpcHandlers() {
       if (!clientId || !clientSecret) {
         throw new Error(`Missing ${provider} clientId or clientSecret in settings`);
       }
-      const adapter =
-        provider === 'gmail' ? integrationManager.gmail : integrationManager.calendar;
-      const authUrl = adapter.getAuthUrl(clientId, clientSecret);
-      const code = await oauthManager.startOAuthFlow(authUrl, (url) => {
-        shell.openExternal(url);
-      });
-      const refreshToken = await adapter.exchangeCodeForRefreshToken(
-        clientId,
-        clientSecret,
-        code,
+      const tokens = await oauthManager.startOAuth(
+        provider,
+        { clientId, clientSecret },
+        (url) => {
+          shell.openExternal(url);
+        },
       );
       const next = { ...settings.integrations };
       if (provider === 'gmail') {
-        next.gmail = { ...next.gmail, clientId, clientSecret, refreshToken };
+        next.gmail = {
+          ...next.gmail,
+          clientId,
+          clientSecret,
+          refreshToken: tokens.refreshToken,
+        };
       } else {
-        next.calendar = { ...next.calendar, clientId, clientSecret, refreshToken };
+        next.calendar = {
+          ...next.calendar,
+          clientId,
+          clientSecret,
+          refreshToken: tokens.refreshToken,
+        };
       }
       settingsStore.set({ integrations: next });
       configureProviders();

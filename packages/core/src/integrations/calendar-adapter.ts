@@ -94,4 +94,9 @@ export class CalendarAdapter {
       location: event.location,
     };
   }
+
+  async deleteEvent(id: string): Promise<void> {
+    if (!this.calendar) throw new Error('Calendar not configured');
+    await this.calendar.events.delete({ calendarId: 'primary', eventId: id });
+  }
 }
