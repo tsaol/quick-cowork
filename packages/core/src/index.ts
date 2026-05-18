@@ -11,3 +11,4 @@ export { FileService } from './files/file-service.js';
 export { generateDocument, generateWord, generateExcel, generatePpt, getFileExtension, getFileFilter } from './documents/index.js';
 export { webSearch, fetchUrl, localSearch, readFileContent } from './research/index.js';
 export * from './memory/index.js';
+export * from './integrations/index.js';
