@@ -78,6 +78,7 @@ export function SettingsView({ onBack }: SettingsViewProps) {
               <option value="openai">OpenAI</option>
               <option value="bedrock">AWS Bedrock</option>
               <option value="ollama">Ollama</option>
+              <option value="litellm">LiteLLM</option>
             </select>
           </div>
 
@@ -163,6 +164,42 @@ export function SettingsView({ onBack }: SettingsViewProps) {
                 placeholder="us-east-1"
               />
             </div>
+          )}
+
+          {settings.provider === 'litellm' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  LiteLLM Base URL
+                </label>
+                <input
+                  type="text"
+                  value={settings.litellmBaseUrl || ''}
+                  onChange={(e) => setSettings({ ...settings, litellmBaseUrl: e.target.value })}
+                  data-testid="settings-litellm-url"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100"
+                  placeholder="http://localhost:4000"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  LiteLLM API Key
+                </label>
+                <input
+                  type="password"
+                  value={settings.apiKeys.litellm || ''}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      apiKeys: { ...settings.apiKeys, litellm: e.target.value },
+                    })
+                  }
+                  data-testid="settings-litellm-key"
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100"
+                  placeholder="sk-litellm (optional)"
+                />
+              </div>
+            </>
           )}
 
           <div>
