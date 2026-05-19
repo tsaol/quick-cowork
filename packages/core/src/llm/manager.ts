@@ -4,6 +4,7 @@ import { AnthropicProvider } from './anthropic.js';
 import { OpenAIProvider } from './openai.js';
 import { BedrockProvider } from './bedrock.js';
 import { OllamaProvider } from './ollama.js';
+import { LiteLLMProvider } from './litellm.js';
 
 export class ProviderManager {
   private providers = new Map<string, LLMProvider>();
@@ -17,6 +18,10 @@ export class ProviderManager {
 
     if (settings.apiKeys.openai) {
       this.providers.set('openai', new OpenAIProvider(settings.apiKeys.openai));
+    }
+
+    if (settings.litellmBaseUrl) {
+      this.providers.set('litellm', new LiteLLMProvider(settings.litellmBaseUrl, settings.apiKeys.litellm));
     }
 
     this.providers.set('bedrock', new BedrockProvider(settings.awsRegion));

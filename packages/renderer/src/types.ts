@@ -28,14 +28,16 @@ export interface StreamChunk {
 }
 
 export interface AppSettings {
-  provider: 'anthropic' | 'openai' | 'bedrock' | 'ollama';
+  provider: 'anthropic' | 'openai' | 'bedrock' | 'ollama' | 'litellm';
   model: string;
   apiKeys: {
     anthropic?: string;
     openai?: string;
+    litellm?: string;
   };
   awsRegion?: string;
   ollamaHost?: string;
+  litellmBaseUrl?: string;
   theme: 'light' | 'dark' | 'system';
   allowedFolders?: string[];
 }
@@ -49,6 +51,7 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
     'amazon.nova-pro-v1:0',
   ],
   ollama: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'phi3'],
+  litellm: ['gpt-4o', 'claude-sonnet-4-6-20250514', 'claude-haiku-4-5-20251001', 'mistral-large-latest'],
 };
 
 // Research types
