@@ -8,6 +8,7 @@
     "build": "rm -rf dist tsconfig.tsbuildinfo && tsc",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/cheerio": "^1.0.0",
-    "@types/node": "^25.8.0"
+    "@types/node": "^25.8.0",
+    "vitest": "^4.1.6"
   }
 }
