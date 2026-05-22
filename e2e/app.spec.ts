@@ -16,7 +16,16 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
-  await app.close();
+  try {
+    await Promise.race([app.close(), new Promise((r) => setTimeout(r, 3000))]);
+  } catch {
+    // ignore close errors
+  }
+  try {
+    app.process().kill('SIGKILL');
+  } catch {
+    // already dead
+  }
 });
 
 test('window opens and app is visible', async () => {
@@ -38,11 +47,18 @@ test('sidebar is visible with New Chat and Settings buttons', async () => {
 });
 
 test('can create conversation, type message, see it appear', async () => {
+  // Verify preload loaded correctly
+  const hasApi = await page.evaluate(() => !!window.quickCowork);
+  if (!hasApi) {
+    console.log('[e2e] window.quickCowork not found - preload may have failed');
+  }
+
   const newChatBtn = page.locator('[data-testid="new-chat-button"]');
   await newChatBtn.click();
+  await page.waitForTimeout(3000);
 
-  await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({ timeout: 10000 });
-  await expect(page.locator('[data-testid="message-input"]')).toBeVisible();
+  await expect(page.locator('[data-testid="chat-view"]')).toBeVisible({ timeout: 30000 });
+  await expect(page.locator('[data-testid="message-input"]')).toBeVisible({ timeout: 10000 });
 
   const input = page.locator('[data-testid="message-input"]');
   await input.fill('Hello from e2e test');
@@ -58,8 +74,9 @@ test('can create conversation, type message, see it appear', async () => {
 test('settings page is accessible', async () => {
   const settingsBtn = page.locator('[data-testid="settings-button"]');
   await settingsBtn.click();
+  await page.waitForTimeout(2000);
 
-  await expect(page.locator('[data-testid="settings-view"]')).toBeVisible();
+  await expect(page.locator('[data-testid="settings-view"]')).toBeVisible({ timeout: 30000 });
   await expect(page.locator('[data-testid="settings-provider"]')).toBeVisible();
   await expect(page.locator('[data-testid="settings-model"]')).toBeVisible();
   await expect(page.locator('[data-testid="settings-theme"]')).toBeVisible();

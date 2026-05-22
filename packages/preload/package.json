@@ -4,12 +4,15 @@
   "private": true,
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf dist tsconfig.tsbuildinfo && tsc",
+    "build": "rm -rf dist && esbuild src/index.ts --bundle --platform=node --external:electron --outfile=dist/index.js --format=cjs",
     "dev": "tsc --watch",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@quick-cowork/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
   }
 }
